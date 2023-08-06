@@ -52,15 +52,34 @@ class APIModel
         return $this->db->single();
     }
 
+    public function getSetting()
+    {
+        $this->db->query("SELECT * FROM tb_setting LIMIT 1");
+        return $this->db->single();
+    }
+
+    public function getAppSetting()
+    {
+        $this->db->query("SELECT * FROM tb_setting_app LIMIT 1");
+        return $this->db->single();
+    }
+
+    public function getThumbMediaProdukByUUID($data)
+    {
+        $this->db->query("SELECT * FROM tb_produk_media WHERE id_uniq_produk=:uuid LIMIT 1");
+        $this->db->bind('uuid', $data);
+        return $this->db->single();
+    }
+
     // END GET =====================================================================================================
 
     // GET ALL =====================================================================================================
     public function getAllProductByIDCategories($data)
     {
-        $this->db->query("SELECT * FROM tb_produk WHERE (id_kategori_1=:kategori || id_kategori_2=:kategori || id_kategori_3=:kategori || id_kategori_4=:kategori) LIMIT :page,:limit");
+        $page = $data['page'];
+        $limit = $data['limit'];
+        $this->db->query("SELECT * FROM tb_produk WHERE (id_kategori_1=:kategori OR id_kategori_2=:kategori OR id_kategori_3=:kategori OR id_kategori_4=:kategori) LIMIT $page,$limit");
         $this->db->bind('kategori', $data['kategori']);
-        $this->db->bind('page', $data['page']);
-        $this->db->bind('limit', $data['limit']);
         return $this->db->resultSet();
     }
 
@@ -75,6 +94,14 @@ class APIModel
     {
         $this->db->query("SELECT * FROM tb_produk_varian WHERE id_uniq_produk=:uuid");
         $this->db->bind('uuid', $data['uuid']);
+        return $this->db->resultSet();
+    }
+
+    public function getAllSearchProduct($data)
+    {
+        $this->db->query("SELECT * FROM tb_produk WHERE (id_kategori_1=:kategori OR id_kategori_2=:kategori OR id_kategori_3=:kategori OR id_kategori_4=:kategori) AND nama_produk LIKE :q ");
+        $this->db->bind('q', "%" . $data['q'] . "%");
+        $this->db->bind('kategori', $data['kategori']);
         return $this->db->resultSet();
     }
 
@@ -111,6 +138,13 @@ class APIModel
     {
         $this->db->query("SELECT COUNT(*) AS total FROM tb_produk_varian WHERE id_uniq_produk=:uniq");
         $this->db->bind('uniq', $data['uniq_id']);
+        return $this->db->single();
+    }
+
+    public function countCustomerByUUID($data)
+    {
+        $this->db->query("SELECT COUNT(*) AS total FROM tb_customer WHERE uuid=:uuid");
+        $this->db->bind('uuid', $data['uuid']);
         return $this->db->single();
     }
     // END COUNT DATA ==============================================================================================

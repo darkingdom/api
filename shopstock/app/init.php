@@ -3,9 +3,10 @@ require "config/config.php";
 
 require "core/Route.php";
 require "core/Database.php";
-require "core/Token.php";
-require "core/Mail.php";
-require "core/DateDifference.php";
+require "library/Token.php";
+require "library/Mail.php";
+require "library/DateDifference.php";
+require "library/numberFormat.php";
 
 require "controller/Controller.php";
 require "model/Model.php";

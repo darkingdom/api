@@ -19,6 +19,7 @@ class APIController
                 $customer = $this->model->getCustomerByUsernamePassword($data);
                 $result['status'] = "OK";
                 $result['username'] = $customer->username;
+                $result['uuid'] = $customer->uuid;
             else :
                 $result['status'] = "BAD_REQUEST";
             endif;
@@ -33,7 +34,8 @@ class APIController
         $setting = $this->model->getSetting();
         if ($data['versi'] != $setting->version) :
             $result['update'] = "UPDATE_READY";
-            $result['urlFile'] = $setting->url_update;
+            $result['urlFile'] = $setting->url_file;
+            $result['appName'] = $setting->app_name;
         else :
             $result['update'] = "NOT_AVAILABLE";
         endif;
@@ -42,8 +44,7 @@ class APIController
 
     public function auth($data)
     {
-        //$this->internetDelay($data);
-        $isp = $this->model->countISPByUUID($data)->total;
+        $isp = $this->model->countCustomerByUUID($data)->total;
         if ($isp > 0) :
             $result['status'] = "OK";
         endif;
@@ -54,13 +55,7 @@ class APIController
     //---------------------------------------------------------------------- START DASHBOARD
     public function dashboard($data)
     {
-        $this->deleteOldHistoryDisconnectPPPOE();
-
-        $result['serverName'] = $this->model->getISPbyUUID($data)->nama_isp;
-        $result['pelanggan'] = $this->model->countTotalPelanggan($data)->total;
-        $result['pelanggan_aktif'] = $this->model->countTotalPelangganAktif($data)->total;
-        $result['pelanggan_tidak_aktif'] = $this->model->countTotalPelangganTidakAktif($data)->total;
-        $result['pelanggan_tidak_aktif_hari_ini'] = $this->model->countTotalPelangganTidakAktifHariIni($data)->total;
+        $result['appSetting'] = $this->model->getAppSetting();
         return $result;
     }
     //---------------------------------------------------------------------- END DASHBOARD
@@ -69,19 +64,45 @@ class APIController
     public function listProduct($data)
     {
         if ($data['part'] == "index") :
-            $result['produk'] = $this->model->getAllProductByIDCategories($data);
             $result['total'] = $this->model->countAllProductByIDCategories($data)->total;
+            $produk = $this->model->getAllProductByIDCategories($data);
+
+            $item = [];
+            foreach ($produk as $produk) :
+                $set['id'] = $produk->id;
+                $set['uuid'] = $produk->uniq_id;
+                $set['title'] = $produk->nama_produk;
+                $set['varian'] = $produk->varian;
+                $set['image'] = @$this->model->getThumbMediaProdukByUUID($produk->uniq_id)->url_image;
+                array_push($item, $set);
+            endforeach;
+            $result = array_merge($result, ["produk" => $item]);
+
         elseif ($data['part'] == "prize") :
-            $result['harga'] = $this->model->getHargaByUniqID($data)->harga;
+            $result['harga'] = Numeric::numberFormat($this->model->getHargaByUniqID($data)->harga);
         elseif ($data['part'] == "varian-prize") :
             $countVarian = $this->model->countVarianByUniqID($data)->total;
             if ($countVarian > 1) :
                 $termurah = $this->model->getHargaMurahVarianByUniqID($data)->harga;
                 $termahal = $this->model->getHargaMahalVarianByUniqID($data)->harga;
-                $result['harga'] = number_format($termurah, 0, '', '.') . " - " . number_format($termahal, 0, '', '.');
+                $result['harga'] = Numeric::numberFormat($termurah) . " - " . Numeric::numberFormat($termahal);
             else :
-                $result['harga'] = $this->model->getHargaVarianByUniqID($data)->harga;
+                $result['harga'] = Numeric::numberFormat($this->model->getHargaVarianByUniqID($data)->harga);
             endif;
+        elseif ($data['part'] == "search") :
+            $produk = $this->model->getAllSearchProduct($data);
+
+            $item = [];
+            foreach ($produk as $produk) :
+                $set['id'] = $produk->id;
+                $set['uuid'] = $produk->uniq_id;
+                $set['title'] = $produk->nama_produk;
+                $set['varian'] = $produk->varian;
+                $set['image'] = @$this->model->getThumbMediaProdukByUUID($produk->uniq_id)->url_image;
+                array_push($item, $set);
+            endforeach;
+            $result['produk'] = $item;
+
         endif;
         return $result;
     }
@@ -106,3 +127,15 @@ class APIController
 
 
 }
+
+//EXAMPLE======================
+
+// $result_b = [];
+// foreach ($history as $history) :
+//     $set['historyID'] = $history->id;
+//     $set['date'] = $history->txDate;
+//     $set['transaction'] = $history->txName;
+//     $set['nominal'] = $history->nominal;
+//     array_push($result_b, $set);
+// endforeach;
+// $result = array_merge($result_a, ["history" => $result_b]);
