@@ -102,7 +102,19 @@ class APIController
                 array_push($item, $set);
             endforeach;
             $result['produk'] = $item;
-
+        elseif ($data['part'] == "newestProduct") :
+            $product = $this->model->getNewestProduct($data);
+            $item = [];
+            foreach ($product as $produk) :
+                $set['id'] = $produk->id;
+                $set['uuid'] = $produk->uniq_id;
+                $set['title'] = $produk->nama_produk;
+                $set['varian'] = $produk->varian;
+                $set['image'] = @$this->model->getThumbMediaProdukByUUID($produk->uniq_id)->url_image;
+                array_push($item, $set);
+            endforeach;
+        elseif ($data['part'] == "titleCategories") :
+            $result['categories'] = $this->model->getCategoriesByID($data)->kategori;
         endif;
         return $result;
     }
@@ -117,10 +129,90 @@ class APIController
             $result['varian'] = $this->model->getAllVarianByUUID($data);
         elseif ($data['part'] == "imageProduct") :
             $result['image'] = $this->model->getAllMediaProdukByUUID($data);
+        elseif ($data['part'] == "merek") :
+            $result['merek'] = $this->model->getMerekByID($data)->nama_merk;
+        elseif ($data['part'] == "varianWarna") :
+            $result['varianWarna'] = $this->model->getWarnaByID($data)->nama_color;
         endif;
         return $result;
     }
     //---------------------------------------------------------------------- END PRODUCT
+
+    //---------------------------------------------------------------------- START ORDER
+    public function order($data)
+    {
+        if ($data['part'] == 'index') :
+            $result['product'] = $this->model->getProdukByUUID($data);
+            $result['image'] = @$this->model->getThumbMediaProdukByUUID($data['uuid'])->url_image;
+            if ($data['partVarian'] == "varian") :
+                $result['varian'] = $this->model->getVarianByUUID($data['uuidVarian']);
+            endif;
+        elseif ($data['part'] == "varianWarna") :
+            $result['varianWarna'] = $this->model->getWarnaByID($data)->nama_color;
+        elseif ($data['part'] == "keranjang") :
+            $totalKeranjang = $this->model->countKeranjangByIdProduk($data)->total;
+            if ($totalKeranjang > 0) :
+                $keranjang = $this->model->getKeranjangByIdProduk($data);
+                $total = $keranjang->jumlah + $data['jumlah'];
+                $update = $this->model->updateKeranjangByIdProduk($data, $total);
+                if ($update) :
+                    if ($data['varian'] == '1') :
+                        $varian = $this->model->getVarianByUUID($data['idvarian']);
+                        $stok = $varian->stok - $data['jumlah'];
+                        $update = $this->model->updateStokVarianByUUID($data['idvarian'], $stok);
+                    else :
+                        $produk = $this->model->getProdukByUUID(['uuid' => $data['idproduk']]);
+                        $stok = $produk->stok - $data['jumlah'];
+                        $update = $this->model->updateStokProdukByUUID($data['idproduk'], $stok);
+                    endif;
+                    if ($update) :
+                        $result['simpan'] = "Berhasil";
+                    endif;
+                endif;
+            else :
+                $simpan = $this->model->simpanKeranjang($data);
+                if ($simpan > 0) :
+                    $result['simpan'] = "Berhasil";
+                endif;
+            endif;
+        endif;
+        return $result;
+    }
+    //---------------------------------------------------------------------- END ORDER
+
+    //---------------------------------------------------------------------- START KERANJANG
+    public function keranjang($data)
+    {
+        if ($data['part'] == 'index') :
+            $keranjang = $this->model->getAllKeranjangByUUIDCustomer($data['userid']);
+            $item = [];
+            $total = 0;
+            foreach ($keranjang as $keranjang) :
+                $produk = $this->model->getProdukByUUID(["uuid" => $keranjang->id_produk]);
+                $set['id'] = $keranjang->id;
+                $set['title'] = $produk->nama_produk;
+                if ($keranjang->varian == '1') :
+                    $set['harga'] = $this->model->getVarianByUUID($keranjang->id_varian)->harga;
+                    $varian = $this->model->getVarianByUUID($keranjang->id_varian);
+                    $warna = $this->model->getWarnaByID(['id' => $varian->warna])->nama_color;
+                    $set['typeVarian'] = $warna . ' ' . $varian->ukuran . ' ' . $varian->jenis;
+                else :
+                    $set['harga'] = $produk->harga;
+                    $set['typeVarian'] = '';
+                endif;
+                $total = $total + $set['harga'];
+                $set['varian'] = $keranjang->varian;
+                $set['jumlah'] = $keranjang->jumlah;
+                $set['keterangan'] = $keranjang->keterangan;
+                $set['image'] = @$this->model->getThumbMediaProdukByUUID($keranjang->id_produk)->url_image;
+                array_push($item, $set);
+            endforeach;
+            $result['totalHarga'] = $total;
+            $result['keranjang'] = $item;
+        endif;
+        return $result;
+    }
+    //---------------------------------------------------------------------- END KERANJANG
 
 
 

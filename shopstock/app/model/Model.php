@@ -71,6 +71,43 @@ class APIModel
         return $this->db->single();
     }
 
+    public function getCategoriesByID($data)
+    {
+        $this->db->query("SELECT * FROM tb_kategori WHERE id=:id");
+        $this->db->bind('id', $data['id']);
+        return $this->db->single();
+    }
+
+    public function getMerekByID($data)
+    {
+        $this->db->query("SELECT * FROM tb_brand WHERE id=:id");
+        $this->db->bind('id', $data['id']);
+        return $this->db->single();
+    }
+
+    public function getWarnaByID($data)
+    {
+        $this->db->query("SELECT * FROM tb_color WHERE id=:id");
+        $this->db->bind('id', (string)$data['id']);
+        return $this->db->single();
+    }
+
+    public function getVarianByUUID($data)
+    {
+        $this->db->query("SELECT * FROM tb_produk_varian WHERE uuid=:uuid");
+        $this->db->bind('uuid', $data);
+        return $this->db->single();
+    }
+
+    public function getKeranjangByIdProduk($data)
+    {
+        $this->db->query("SELECT * FROM tb_keranjang WHERE id_customer=:idcustomer AND id_produk=:idproduk AND id_varian=:idvarian");
+        $this->db->bind('idcustomer', $data['userid']);
+        $this->db->bind('idproduk', $data['idproduk']);
+        $this->db->bind('idvarian', $data['idvarian']);
+        return $this->db->single();
+    }
+
     // END GET =====================================================================================================
 
     // GET ALL =====================================================================================================
@@ -78,7 +115,7 @@ class APIModel
     {
         $page = $data['page'];
         $limit = $data['limit'];
-        $this->db->query("SELECT * FROM tb_produk WHERE (id_kategori_1=:kategori OR id_kategori_2=:kategori OR id_kategori_3=:kategori OR id_kategori_4=:kategori) LIMIT $page,$limit");
+        $this->db->query("SELECT * FROM tb_produk WHERE publikasi='public' AND (id_kategori_1=:kategori OR id_kategori_2=:kategori OR id_kategori_3=:kategori OR id_kategori_4=:kategori) LIMIT $page,$limit");
         $this->db->bind('kategori', $data['kategori']);
         return $this->db->resultSet();
     }
@@ -99,9 +136,24 @@ class APIModel
 
     public function getAllSearchProduct($data)
     {
-        $this->db->query("SELECT * FROM tb_produk WHERE (id_kategori_1=:kategori OR id_kategori_2=:kategori OR id_kategori_3=:kategori OR id_kategori_4=:kategori) AND nama_produk LIKE :q ");
+        $this->db->query("SELECT * FROM tb_produk WHERE publikasi='public' AND (id_kategori_1=:kategori OR id_kategori_2=:kategori OR id_kategori_3=:kategori OR id_kategori_4=:kategori) AND nama_produk LIKE :q LIMIT 30");
         $this->db->bind('q', "%" . $data['q'] . "%");
         $this->db->bind('kategori', $data['kategori']);
+        return $this->db->resultSet();
+    }
+
+    public function getNewestProduct($data)
+    {
+        $page = $data['page'];
+        $limit = $data['limit'];
+        $this->db->query("SELECT * FROM tb_produk WHERE publikasi='public' AND tanggal > DATE_SUB(NOW(), INTERVAL 1 MONTH) ORDER BY tanggal DESC LIMIT $page,$limit");
+        return $this->db->resultSet();
+    }
+
+    public function getAllKeranjangByUUIDCustomer($data)
+    {
+        $this->db->query("SELECT * FROM tb_keranjang WHERE id_customer=:uuid");
+        $this->db->bind('uuid', $data);
         return $this->db->resultSet();
     }
 
@@ -147,32 +199,64 @@ class APIModel
         $this->db->bind('uuid', $data['uuid']);
         return $this->db->single();
     }
+
+    public function countKeranjangByIdProduk($data)
+    {
+        $this->db->query("SELECT COUNT(*) AS total FROM tb_keranjang WHERE id_customer=:idcustomer AND id_produk=:idproduk AND id_varian=:idvarian");
+        $this->db->bind('idcustomer', $data['userid']);
+        $this->db->bind('idproduk', $data['idproduk']);
+        $this->db->bind('idvarian', $data['idvarian']);
+        return $this->db->single();
+    }
     // END COUNT DATA ==============================================================================================
 
     // UPDATE DATA =================================================================================================
 
+    public function updateKeranjangByIdProduk($data, $total)
+    {
+        $this->db->query("UPDATE tb_keranjang SET jumlah='$total', keterangan=:keterangan WHERE id_customer=:idcustomer AND id_produk=:idproduk AND id_varian=:idvarian");
+        $this->db->bind('idcustomer', $data['userid']);
+        $this->db->bind('idproduk', $data['idproduk']);
+        $this->db->bind('idvarian', $data['idvarian']);
+        $this->db->bind('keterangan', $data['keterangan']);
+        $this->db->execute();
+        return $this->db->rowCount();
+    }
 
-    // public function updateMsgByID($data)
-    // {
-    //     $this->db->query("UPDATE `pesan` SET status='1' WHERE id=:id");
-    //     $this->db->bind('id', $data['id']);
-    //     $this->db->execute();
-    //     return $this->db->rowCount();
-    // }
+    public function updateStokProdukByUUID($data, $stok)
+    {
+        $this->db->query("UPDATE tb_produk SET stok='$stok' WHERE uniq_id=:uuid");
+        $this->db->bind('uuid', $data);
+        $this->db->execute();
+        return $this->db->rowCount();
+    }
+
+    public function updateStokVarianByUUID($data, $stok)
+    {
+        $this->db->query("UPDATE tb_produk_varian SET stok='$stok' WHERE uuid=:uuid");
+        $this->db->bind('uuid', $data);
+        $this->db->execute();
+        return $this->db->rowCount();
+    }
     // END UPDATE DATA =============================================================================================
 
 
     // CREATE ======================================================================================================
-
-    // public function createMsg($data)
-    // {
-    //     $this->db->query("INSERT INTO `pesan` (date_create,receiver,message,app_id,status)VALUES(NOW(),:receiver,:message,:appID,'0')");
-    //     $this->db->bind('receiver', $data['receiver']);
-    //     $this->db->bind('message', $data['message']);
-    //     $this->db->bind('appID', $data['appID']);
-    //     $this->db->execute();
-    //     return $this->db->rowCount();
-    // }
+    public function simpanKeranjang($data)
+    {
+        $this->db->query("INSERT INTO `tb_keranjang` (tanggal,id_customer,id_produk,varian,id_varian,jumlah,keterangan)
+                                                    VALUES (
+                                                        NOW(),:idcustomer,:idproduk,:varian,:idvarian,:jumlah,:keterangan
+                                                    )");
+        $this->db->bind('idcustomer', $data['userid']);
+        $this->db->bind('idproduk', $data['idproduk']);
+        $this->db->bind('varian', $data['varian']);
+        $this->db->bind('idvarian', $data['idvarian']);
+        $this->db->bind('jumlah', (string)$data['jumlah']);
+        $this->db->bind('keterangan', $data['keterangan']);
+        $this->db->execute();
+        return $this->db->rowCount();
+    }
     // END CREATE ==================================================================================================
 
     // DELETE DATA =================================================================================================
